@@ -1,0 +1,32 @@
+name: Big File Splitter
+on: 
+  workflow_dispatch: # Allows you to start it manually with a button
+    inputs:
+      file_url:
+        description: 'Direct link to the big file'
+        required: true
+
+jobs:
+  download_and_split:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the file
+        run: |
+          # --no-check-certificate skips SSL errors
+          wget --no-check-certificate -O bigfile "${{ github.event.inputs.file_url }}"
+
+      - name: Download the file
+        run: |
+          wget --no-check-certificate \
+               --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36" \
+               --content-disposition \
+               -O bigfile "${{ github.event.inputs.file_url }}"
+          # Chops the file into pieces like: part_aa, part_ab, etc.
+          split -b 500M bigfile part_
+
+      - name: Upload parts
+        uses: actions/upload-artifact@v4
+        with:
+          name: split-files
+          path: part_*
+          retention-days: 1 # Files delete after 1 day to save space
