@@ -1,0 +1,72 @@
+name: Bridge Large File
+on:
+  workflow_dispatch:
+    inputs:
+      drive_link:
+        description: 'Paste your Google Drive Link here'
+        required: true
+
+jobs:
+  download-split-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Step 1: Free up disk space (Crucial for 8GB files)
+      - name: Maximize Build Space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 512
+          swap-size-mb: 1024
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Step 2: Install the Google Drive downloader
+      - name: Set up Python and gdown
+        run: |
+          pip install gdown
+
+      # Step 3: Download, Split, and Clean up
+      - name: Process File
+        run: |
+          echo "Starting download..."
+          # Download with fuzzy logic to handle various link formats
+          gdown "${{ inputs.drive_link }}" -O huge_file.bin --fuzzy
+          
+          echo "Download complete. Splitting file..."
+          # Split into 95MB chunks (safe margin below 100MB)
+          # Suffix will be numeric (e.g., part_00, part_01)
+          split -b 95M -d huge_file.bin part_
+          
+          echo "Splitting complete. Deleting original file to save space..."
+          rm huge_file.bin
+
+      # Step 4: Push chunks to GitHub
+      - name: Commit and Push
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git config --global http.postBuffer 524288000
+          
+          # Add all split parts
+          git add part_*
+          git commit -m "Upload file chunks"
+          git push
+
+      # Step 5: Output the direct links
+      - name: ✅ Get Your Links
+        run: |
+          echo "========================================"
+          echo "COPY THESE LINKS TO DOWNLOAD:"
+          echo "========================================"
+          base_url="https://githubusercontent.com{{ github.repository }}/main"
+          for file in part_*; do
+            echo "$base_url/$file"
+          done
+          echo "========================================"
