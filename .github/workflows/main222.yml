@@ -1,0 +1,35 @@
+name: "Download and Split Large File"
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_url:
+        description: 'Direct Link to your 7.5GB file'
+        required: true
+        default: 'https://example.com'
+
+jobs:
+  process-file:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download the file
+        run: |
+          wget -O large_file_to_split "${{ github.event.inputs.file_url }}"
+
+      - name: Split file into 400MB chunks
+        run: |
+          mkdir -p chunks
+          split -b 500M large_file_to_split chunks/part_
+          # This creates files like part_aa, part_ab, etc.
+
+      - name: Create Release and Upload Chunks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="v$(date +'%Y%m%d%H%M%S')"
+          gh release create "$TAG_NAME" chunks/* --title "File Parts - $TAG_NAME" --notes "Download all parts and join them."
