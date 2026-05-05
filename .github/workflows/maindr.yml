@@ -1,0 +1,32 @@
+name: Download and Split Large File
+on: 
+  workflow_dispatch: # This allows you to click "Run workflow" without a pop-up box
+
+jobs:
+  download-and-split:
+    runs-on: ubuntu-latest
+    env:
+      # PASTE YOUR LINK INSIDE THE QUOTES BELOW
+      FILE_URL: "https://drive.usercontent.google.com/download?id=1AvQAxaNGmX0bjKuQ4JiaMEu_qxoLms4d&export=download&authuser=0&confirm=t&uuid=ffea8568-0ef7-49f5-abd7-d025179e3c6c&at=ALBwUglORY_QVmMxmowVE6qUjL7j%3A1777920830727"
+      
+    steps:
+      - name: Free up space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          # Actions runners have ~14GB SSD space; clearing this gives us more room
+
+      - name: Download File
+        run: wget -O bigfile.zip "$FILE_URL"
+
+      - name: Split File into 500MB pieces
+        run: |
+          mkdir -p chunks
+          split -b 500M bigfile.zip chunks/part_
+
+      - name: Create Release and Upload
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ github.run_number }}"
+          files: chunks/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
